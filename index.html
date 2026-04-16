@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-<title>ヘキサゴン配置ボード</title>
+<title>ヘキサ・ディベート</title>
 <style>
 :root{
   --bg:#eef3fb;
@@ -282,9 +282,7 @@ function snapRadius(){ return Math.max(42, getHexW() * 0.28); }
 const markerCycle = [
   { text:'', color:'transparent' },
   { text:'♥', color:'#d94141' },
-  { text:'♣', color:'#2b6ee7' },
-  { text:'♦', color:'#d6a300' },
-  { text:'🍀', color:'#1f9a56' }
+  { text:'♕', color:'#caa100' }
 ];
 
 let panX = 0;
@@ -405,11 +403,9 @@ function pointerToWorkspace(clientX, clientY){
 
 function constrain(x, y){
   const minX = trayWidth() + 12 - panX;
-  const maxX = workspace.offsetWidth - getHexW() - 6;
-  const maxY = workspace.offsetHeight - getHexH() - 6;
   return {
-    x: Math.max(minX, Math.min(maxX, x)),
-    y: Math.max(0, Math.min(maxY, y))
+    x: Math.max(minX, x),
+    y: y
   };
 }
 
