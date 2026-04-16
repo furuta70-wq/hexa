@@ -43,7 +43,18 @@
   --shadow-strong:0 18px 34px rgba(20,30,60,.20);
   --hud-shadow:0 10px 24px rgba(20,30,60,.10);
 }
-*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+*{
+  box-sizing:border-box;
+  -webkit-tap-highlight-color:transparent;
+  -webkit-user-select:none;
+  user-select:none;
+  -webkit-touch-callout:none;
+}
+body{
+  -webkit-user-select:none;
+  user-select:none;
+  -webkit-touch-callout:none;
+}
 html,body{
   margin:0;height:100%;overflow:hidden;
   font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","Hiragino Sans","Yu Gothic",sans-serif;
@@ -711,6 +722,15 @@ clearBtn.addEventListener('click', ()=>{
   applyPan();
   fillTray();
   placeInitialCore();
+});
+
+
+document.addEventListener('dragstart', e => e.preventDefault());
+document.addEventListener('selectstart', e => e.preventDefault());
+document.addEventListener('contextmenu', e => {
+  if (e.target.closest('.hex') || e.target.closest('#viewport') || e.target.closest('#tray')) {
+    e.preventDefault();
+  }
 });
 
 fillTray();
