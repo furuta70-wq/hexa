@@ -449,6 +449,12 @@ const baseGroups = [
 ];
 const citizenGroup = { label: '市民', className: 'citizen', items: ['疑問','反論','具体例','定義'] };
 let citizenEnabled = false;
+const usedTrayItems = new Set();
+
+function trayKey(label, className){
+  return `${className}::${label}`;
+}
+
 function currentGroups(){
   return citizenEnabled ? [...baseGroups, citizenGroup] : baseGroups;
 }
@@ -642,6 +648,7 @@ function fillTray(){
     title.textContent = group.label;
     block.appendChild(title);
     group.items.forEach(item => {
+      if (usedTrayItems.has(trayKey(item, group.className))) return;
       const hex = makeHex(item, group.className);
       hex.dataset.source = 'tray';
       hex.addEventListener('pointerdown', startTrayPointerDown);
@@ -665,6 +672,7 @@ function fillTray(){
 }
 
 function addBackToTray(label, className){
+  usedTrayItems.delete(trayKey(label, className));
   const blocks = Array.from(tray.querySelectorAll('.group-block'));
   const block = blocks.find(b => {
     const title = b.querySelector('.group-label');
@@ -677,6 +685,8 @@ function addBackToTray(label, className){
     );
   });
   if (!block) return;
+  const exists = Array.from(block.querySelectorAll('.hex')).some(h => h.dataset.label === label && h.dataset.kind === className);
+  if (exists) return;
   const hex = makeHex(label, className);
   hex.dataset.source = 'tray';
   hex.addEventListener('pointerdown', startTrayPointerDown);
@@ -1029,9 +1039,11 @@ function endDrag(e){
   if(overTrash){
     // 左カラム由来なら元札を復帰、盤面既存札なら戻す札を追加
     if (sourceEl && sourceEl.isConnected) {
+      usedTrayItems.delete(trayKey(hex.dataset.label, hex.dataset.kind));
       sourceEl.style.visibility = '';
       sourceEl.classList.remove('ghosting');
     } else if (hex.dataset.markerLocked !== '1') {
+      usedTrayItems.delete(trayKey(hex.dataset.label, hex.dataset.kind));
       addBackToTray(hex.dataset.label, hex.dataset.kind);
     }
     hex.remove();
@@ -1044,8 +1056,9 @@ function endDrag(e){
       cycleMarker(hex);
     }
     // 盤面に残るので、左カラム元札をここで確実に消す
-    if (sourceEl && sourceEl.isConnected) {
-      sourceEl.remove();
+    if (sourceEl) {
+      usedTrayItems.add(trayKey(hex.dataset.label, hex.dataset.kind));
+      if (sourceEl.isConnected) sourceEl.remove();
     }
     hex._sourceEl = null;
     triggerDropEffect(hex);
@@ -1070,8 +1083,9 @@ function endDrag(e){
     }
 
     // 盤面に残るので、左カラム元札をここで確実に消す
-    if (sourceEl && sourceEl.isConnected) {
-      sourceEl.remove();
+    if (sourceEl) {
+      usedTrayItems.add(trayKey(hex.dataset.label, hex.dataset.kind));
+      if (sourceEl.isConnected) sourceEl.remove();
     }
     hex._sourceEl = null;
   }
@@ -1087,6 +1101,7 @@ function endDrag(e){
 }
 clearBtn.addEventListener('click', ()=>{
   workspace.innerHTML = '';
+  usedTrayItems.clear();
   panX = 0;
   panY = 0;
   applyPan();
