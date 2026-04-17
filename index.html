@@ -353,34 +353,10 @@ html,body{
 }
 
 
-#citizenToggleWrap{
-  position:relative;
-  padding:12px 10px calc(var(--hex-h) + 18px);
-  margin-top:4px;
-}
-#citizenToggle{
-  width:100%;
-  border:0;
-  background:linear-gradient(180deg, #3e78da, #2c64c9);
-  border-radius:16px;
-  padding:13px 12px;
-  font-size:14px;
-  font-weight:900;
-  color:#ffffff;
-  box-shadow:0 8px 14px rgba(33,93,202,.16);
-}
-#citizenToggle.active{
-  background:linear-gradient(180deg, #2fa060, #24884f);
-  box-shadow:0 8px 14px rgba(29,139,80,.16);
-}
-#citizenToggle::before{
-  content:"切替";
-  display:block;
-  font-size:10px;
-  letter-spacing:.08em;
-  opacity:.82;
-  margin-bottom:2px;
-}
+
+
+
+
 
 .floating{
   position:absolute;z-index:40;
@@ -448,7 +424,6 @@ const baseGroups = [
   { label: '記者', className: 'debate', items: ['根拠','具体例','反論','対案'] }
 ];
 const citizenGroup = { label: '市民', className: 'citizen', items: ['疑問','反論','具体例','定義'] };
-let citizenEnabled = false;
 const usedTrayItems = new Set();
 
 function trayKey(label, className){
@@ -456,7 +431,7 @@ function trayKey(label, className){
 }
 
 function currentGroups(){
-  return citizenEnabled ? [...baseGroups, citizenGroup] : baseGroups;
+  return [...baseGroups, citizenGroup];
 }
 
 const viewport = document.getElementById('viewport');
@@ -470,7 +445,7 @@ const coreEditorInput = document.getElementById('coreEditorInput');
 const coreEditorOk = document.getElementById('coreEditorOk');
 const coreEditorCancel = document.getElementById('coreEditorCancel');
 const trash = document.getElementById('trash');
-let citizenToggle = null;
+
 
 function cssNum(name){ return parseFloat(getComputedStyle(document.documentElement).getPropertyValue(name)); }
 function getHexW(){ return cssNum('--hex-w'); }
@@ -656,19 +631,6 @@ function fillTray(){
     });
     tray.appendChild(block);
   });
-
-  const wrap = document.createElement('div');
-  wrap.id = 'citizenToggleWrap';
-  citizenToggle = document.createElement('button');
-  citizenToggle.id = 'citizenToggle';
-  citizenToggle.textContent = citizenEnabled ? '5人目：市民 ON' : '5人目：市民 OFF';
-  citizenToggle.classList.toggle('active', citizenEnabled);
-  citizenToggle.addEventListener('click', () => {
-    citizenEnabled = !citizenEnabled;
-    fillTray();
-  });
-  wrap.appendChild(citizenToggle);
-  tray.appendChild(wrap);
 }
 
 function addBackToTray(label, className){
@@ -866,12 +828,12 @@ function onTrayPointerMove(e){
 
   // Decide intent once and lock it
   if (trayPending.mode === 'undecided') {
-    if (absY >= 16 && absY > absX) {
+    if (absY >= 18 && absY > absX * 1.25) {
       trayPending.mode = 'scroll';
       endTrayPointer(e);
       return;
     }
-    if (absX >= 10 && absX > absY * 0.75) {
+    if (absX >= 8 && absX > absY * 0.55) {
       trayPending.mode = 'dragCandidate';
     } else {
       return;
