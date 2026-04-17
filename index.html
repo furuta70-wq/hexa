@@ -90,7 +90,7 @@ html,body{
   border-right:1px solid var(--tray-line);
   box-shadow:0 0 0 1px rgba(255,255,255,.45) inset, 8px 0 28px rgba(40,54,84,.08);
   overflow-y:auto;overflow-x:hidden;
-  padding:18px 0 0;
+  padding:18px 0 calc(var(--hex-h) + 24px);
   z-index:50;
   scrollbar-width:thin;
 }
@@ -1061,6 +1061,34 @@ function endDrag(e){
   hex.removeEventListener('pointercancel', endDrag);
   dragState = null;
 }
+
+function startPan(e){
+  if (e.target.closest('.hex') || e.target.closest('#tray') || e.target.closest('#clearBtn') || e.target.closest('#editToggle') || e.target.closest('#addCoreBtn') || e.target.closest('#trash') || e.target.closest('#coreEditor')) return;
+  panState = { pointerId:e.pointerId, startX:e.clientX, startY:e.clientY, originX:panX, originY:panY };
+  viewport.classList.add('panning');
+  if (viewport.setPointerCapture) {
+    try { viewport.setPointerCapture(e.pointerId); } catch(_) {}
+  }
+}
+function onPanMove(e){
+  if (!panState || e.pointerId !== panState.pointerId) return;
+  panX = panState.originX + (e.clientX - panState.startX);
+  panY = panState.originY + (e.clientY - panState.startY);
+  applyPan();
+}
+function endPan(e){
+  if (!panState || e.pointerId !== panState.pointerId) return;
+  viewport.classList.remove('panning');
+  if (viewport.releasePointerCapture) {
+    try { viewport.releasePointerCapture(e.pointerId); } catch(_) {}
+  }
+  panState = null;
+}
+viewport.addEventListener('pointerdown', startPan);
+viewport.addEventListener('pointermove', onPanMove);
+viewport.addEventListener('pointerup', endPan);
+viewport.addEventListener('pointercancel', endPan);
+
 clearBtn.addEventListener('click', ()=>{
   workspace.innerHTML = '';
   usedTrayItems.clear();
