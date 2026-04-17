@@ -918,7 +918,7 @@ function endTrayPointer(e){
   window.removeEventListener('pointercancel', endTrayPointer);
 
   if(trayPending){
-    // If it never left the tray, cancel floating ghost and restore source.
+    // まだカラム外へ出ていないなら、浮遊札を破棄して元札を戻す
     if(!trayPending.extracted){
       if(dragState && dragState.hex){
         const ghost = dragState.hex;
@@ -936,6 +936,7 @@ function endTrayPointer(e){
         trayPending.sourceEl.classList.remove('ghosting');
       }
     } else {
+      // 抽出後は最終確定を endDrag に一本化する
       if(dragState && dragState.hex){
         dragState.hex.classList.remove('from-tray','extracted');
         dragState.hex.style.transform = '';
@@ -1018,26 +1019,42 @@ function endDrag(e){
     rafMove = 0;
     applyDragFrame();
   }
+
   const {hex, overTrash} = dragState;
   const wasTap = !dragState.moved && !overTrash;
+  const sourceEl = hex._sourceEl || null;
+
   trash.classList.remove('active');
 
   if(overTrash){
-    if (hex.dataset.markerLocked !== '1') {
+    // 左カラム由来なら元札を復帰、盤面既存札なら戻す札を追加
+    if (sourceEl && sourceEl.isConnected) {
+      sourceEl.style.visibility = '';
+      sourceEl.classList.remove('ghosting');
+    } else if (hex.dataset.markerLocked !== '1') {
       addBackToTray(hex.dataset.label, hex.dataset.kind);
     }
     hex.remove();
+
   }else if(wasTap){
     if (rewriteMode && hex.dataset.coreEditable === '1') {
-      openCoreEditor(hex, hex.dataset.label || '');
+      const next = promptCoreLabel(hex.dataset.label || '');
+      if (next !== null && next !== '') setHexLabel(hex, next);
     } else {
       cycleMarker(hex);
     }
+    // 盤面に残るので、左カラム元札をここで確実に消す
+    if (sourceEl && sourceEl.isConnected) {
+      sourceEl.remove();
+    }
+    hex._sourceEl = null;
     triggerDropEffect(hex);
+
   }else{
     const x = parseFloat(hex.style.left) || 0;
     const y = parseFloat(hex.style.top) || 0;
     const snap = candidateSnapPositions(x, y);
+
     if(snap && snap.d <= snapRadius()){
       const pos = constrain(snap.x, snap.y);
       const moved = Math.abs(pos.x - x) > 1 || Math.abs(pos.y - y) > 1;
@@ -1051,57 +1068,23 @@ function endDrag(e){
       hex.style.top = `${pos.y}px`;
       triggerDropEffect(hex);
     }
+
+    // 盤面に残るので、左カラム元札をここで確実に消す
+    if (sourceEl && sourceEl.isConnected) {
+      sourceEl.remove();
+    }
+    hex._sourceEl = null;
   }
 
-  hex.classList.remove('dragging','snap-candidate');
-  if(hex.releasePointerCapture) hex.releasePointerCapture(e.pointerId);
+  hex.classList.remove('dragging','snap-candidate','from-tray','extracted');
+  if(hex.releasePointerCapture) {
+    try { hex.releasePointerCapture(e.pointerId); } catch(_) {}
+  }
   hex.removeEventListener('pointermove', onDragMove);
   hex.removeEventListener('pointerup', endDrag);
   hex.removeEventListener('pointercancel', endDrag);
   dragState = null;
 }
-
-
-function startPan(e){
-  if (e.target.closest('.hex') || e.target.closest('#tray') || e.target.closest('#clearBtn') || e.target.closest('#trash')) return;
-  panState = { pointerId:e.pointerId, startX:e.clientX, startY:e.clientY, originX:panX, originY:panY };
-  viewport.classList.add('panning');
-  if (viewport.setPointerCapture) viewport.setPointerCapture(e.pointerId);
-}
-function onPanMove(e){
-  if (!panState || e.pointerId !== panState.pointerId) return;
-  panX = panState.originX + (e.clientX - panState.startX);
-  panY = panState.originY + (e.clientY - panState.startY);
-  applyPan();
-}
-function endPan(e){
-  if (!panState || e.pointerId !== panState.pointerId) return;
-  viewport.classList.remove('panning');
-  if (viewport.releasePointerCapture) viewport.releasePointerCapture(e.pointerId);
-  panState = null;
-}
-viewport.addEventListener('pointerdown', startPan);
-viewport.addEventListener('pointermove', onPanMove);
-viewport.addEventListener('pointerup', endPan);
-viewport.addEventListener('pointercancel', endPan);
-
-
-editToggle.addEventListener('click', () => {
-  rewriteMode = !rewriteMode;
-  updateRewriteUI();
-});
-
-addCoreBtn.addEventListener('click', () => {
-  if (!rewriteMode) return;
-  openCoreEditor(null, '新規');
-});
-
-coreEditorOk.addEventListener('click', applyCoreEditor);
-coreEditorCancel.addEventListener('click', closeCoreEditor);
-coreEditorInput.addEventListener('keydown', (e) => {
-  if (e.key === 'Enter') applyCoreEditor();
-  if (e.key === 'Escape') closeCoreEditor();
-});
 clearBtn.addEventListener('click', ()=>{
   workspace.innerHTML = '';
   panX = 0;
