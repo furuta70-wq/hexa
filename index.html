@@ -1021,8 +1021,7 @@ function endDrag(e){
 
   }else if(wasTap){
     if (rewriteMode && hex.dataset.coreEditable === '1') {
-      const next = promptCoreLabel(hex.dataset.label || '');
-      if (next !== null && next !== '') setHexLabel(hex, next);
+      openCoreEditor(hex, hex.dataset.label || '');
     } else {
       cycleMarker(hex);
     }
@@ -1097,6 +1096,24 @@ viewport.addEventListener('pointerdown', startPan);
 viewport.addEventListener('pointermove', onPanMove);
 viewport.addEventListener('pointerup', endPan);
 viewport.addEventListener('pointercancel', endPan);
+
+
+editToggle.addEventListener('click', () => {
+  rewriteMode = !rewriteMode;
+  updateRewriteUI();
+});
+
+addCoreBtn.addEventListener('click', () => {
+  if (!rewriteMode) return;
+  openCoreEditor(null, '新規');
+});
+
+coreEditorOk.addEventListener('click', applyCoreEditor);
+coreEditorCancel.addEventListener('click', closeCoreEditor);
+coreEditorInput.addEventListener('keydown', (e) => {
+  if (e.key === 'Enter') applyCoreEditor();
+  if (e.key === 'Escape') closeCoreEditor();
+});
 
 clearBtn.addEventListener('click', ()=>{
   workspace.innerHTML = '';
