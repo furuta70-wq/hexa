@@ -188,6 +188,7 @@ html,body{
   touch-action:pan-y;
 }
 #tray .hex:active{transform:scale(.985)}
+#tray .hex.ghosting{opacity:.45}
 #workspace .hex{
   position:absolute;
   touch-action:none;
@@ -202,6 +203,9 @@ html,body{
 #workspace .hex.from-tray{
   opacity:.98;
   transition:none;
+}
+#workspace .hex.ghosting{
+  opacity:.42;
 }
 #workspace .hex.extracted{
   box-shadow:0 20px 38px rgba(20,30,60,.24);
@@ -392,8 +396,11 @@ html,body{
   font-size:14px;font-weight:800;color:var(--text);
 }
 #trash{
-  position:absolute;right:14px;bottom:14px;z-index:40;
-  width:112px;height:112px;border-radius:18px;
+  position:absolute;
+  right:14px;
+  top:126px;
+  z-index:40;
+  width:132px;height:112px;border-radius:18px;
   border:2px dashed #d66767;background:rgba(255,255,255,.95);
   display:flex;align-items:center;justify-content:center;flex-direction:column;
   gap:6px;color:#ba3c3c;box-shadow:var(--hud-shadow);
@@ -412,7 +419,12 @@ html,body{
   :root{ --hex-w:136px; --hex-h:118px; --tray-w:176px; }
   .hex{font-size:18px}
   #clearBtn{left:184px;top:8px; width:100px}
-  #trash{right:8px;bottom:8px;width:100px;height:104px}
+  #trash{
+    right:8px;
+    top:120px;
+    width:132px;
+    height:96px
+  }
 }
 </style>
 </head>
@@ -526,6 +538,13 @@ let coreEditTarget = null;
 function updateRewriteUI(){
   editToggle.classList.toggle('active', rewriteMode);
   addCoreBtn.classList.toggle('show', rewriteMode);
+
+  const isMobile = window.matchMedia('(max-width: 900px)').matches;
+  if (rewriteMode) {
+    trash.style.top = isMobile ? '176px' : '182px';
+  } else {
+    trash.style.top = isMobile ? '120px' : '126px';
+  }
 }
 
 function openCoreEditor(targetEl, initialText){
@@ -794,6 +813,9 @@ function placeInitialCore(){
 
 function startTrayPointerDown(e){
   const rect = e.currentTarget.getBoundingClientRect();
+  const hitX = e.clientX - rect.left;
+  const rightHalf = hitX >= rect.width * 0.5;
+
   trayPending = {
     pointerId:e.pointerId,
     label:e.currentTarget.dataset.label,
@@ -803,35 +825,61 @@ function startTrayPointerDown(e){
     sourceEl:e.currentTarget,
     offsetX:e.clientX - rect.left,
     offsetY:e.clientY - rect.top,
-    extracted:false
+    extracted:false,
+    mode:rightHalf ? 'dragCandidate' : 'undecided'
   };
+  if (trayPending.sourceEl) trayPending.sourceEl.classList.add('ghosting');
+
   window.addEventListener('pointermove', onTrayPointerMove, {passive:false});
   window.addEventListener('pointerup', endTrayPointer);
   window.addEventListener('pointercancel', endTrayPointer);
 }
 
+function createFloatingHexFromTray(pending){
+  const srcRect = pending.sourceEl.getBoundingClientRect();
+  const vpRect = viewport.getBoundingClientRect();
+  const localX = srcRect.left - vpRect.left - panX;
+  const localY = srcRect.top - vpRect.top - panY;
+  const ghost = createBoardHex(pending.label, pending.kind, localX, localY);
+  ghost.classList.add('from-tray');
+  return ghost;
+}
+
 function onTrayPointerMove(e){
   if(!trayPending || e.pointerId !== trayPending.pointerId) return;
+
   const dx = e.clientX - trayPending.startX;
   const dy = e.clientY - trayPending.startY;
+  const absX = Math.abs(dx);
+  const absY = Math.abs(dy);
 
-  if(Math.abs(dy) > Math.abs(dx) && Math.abs(dy) > 6){
+  // Decide intent once and lock it
+  if (trayPending.mode === 'undecided') {
+    if (absY >= 16 && absY > absX) {
+      trayPending.mode = 'scroll';
+      endTrayPointer(e);
+      return;
+    }
+    if (absX >= 10 && absX > absY * 0.75) {
+      trayPending.mode = 'dragCandidate';
+    } else {
+      return;
+    }
+  }
+
+  if (trayPending.mode === 'scroll') {
     endTrayPointer(e);
     return;
   }
-  if(Math.hypot(dx,dy) < TRAY_DRAG_THRESHOLD) return;
 
   e.preventDefault();
 
   if(!dragState){
-    const p = pointerToWorkspace(e.clientX, e.clientY);
-    const HEX_W = getHexW(), HEX_H = getHexH();
-    const offsetX = trayPending.offsetX ?? (HEX_W / 2);
-    const offsetY = trayPending.offsetY ?? (HEX_H / 2);
-    const pos = constrainLoose(p.x - offsetX, p.y - offsetY);
-    const hex = createBoardHex(trayPending.label, trayPending.kind, pos.x, pos.y);
-    hex.classList.add('from-tray');
-    beginDrag(e, hex, offsetX, offsetY);
+    const ghost = createFloatingHexFromTray(trayPending);
+    beginDrag(e, ghost, trayPending.offsetX, trayPending.offsetY);
+    if (dragState) {
+      dragState.fromTray = true;
+    }
   } else {
     dragState.clientX = e.clientX;
     dragState.clientY = e.clientY;
@@ -846,14 +894,18 @@ function onTrayPointerMove(e){
 
   const trayRight = tray.getBoundingClientRect().right;
   const distanceOut = e.clientX - trayRight;
+
   if (dragState && dragState.hex && !trayPending.extracted) {
-    dragState.hex.style.transform = `scale(${1 + Math.max(0, Math.min(0.04, distanceOut * 0.0015))})`;
+    const scale = 1 + Math.max(0, Math.min(0.04, distanceOut * 0.0015));
+    dragState.hex.style.transform = `scale(${scale})`;
     dragState.hex.style.filter = `saturate(${1 + Math.max(0, Math.min(0.04, distanceOut * 0.002))})`;
   }
+
   if(!trayPending.extracted && distanceOut > EXTRACT_MARGIN){
     trayPending.extracted = true;
     if (trayPending.sourceEl && trayPending.sourceEl.isConnected) {
       trayPending.sourceEl.style.visibility = 'hidden';
+      trayPending.sourceEl.classList.remove('ghosting');
     }
     if (dragState && dragState.hex) dragState.hex.classList.add('extracted');
   }
@@ -865,20 +917,22 @@ function endTrayPointer(e){
   window.removeEventListener('pointercancel', endTrayPointer);
 
   if(trayPending){
+    // If it never left the tray, cancel floating ghost and restore source.
     if(!trayPending.extracted){
       if(dragState && dragState.hex){
         const ghost = dragState.hex;
-        ghost.remove();
         if (ghost.releasePointerCapture && e) {
           try { ghost.releasePointerCapture(e.pointerId); } catch(_) {}
         }
         ghost.removeEventListener('pointermove', onDragMove);
         ghost.removeEventListener('pointerup', endDrag);
         ghost.removeEventListener('pointercancel', endDrag);
+        ghost.remove();
         dragState = null;
       }
       if(trayPending.sourceEl && trayPending.sourceEl.isConnected){
         trayPending.sourceEl.style.visibility = '';
+        trayPending.sourceEl.classList.remove('ghosting');
       }
     } else {
       if(trayPending.sourceEl && trayPending.sourceEl.isConnected){
@@ -970,12 +1024,7 @@ function endDrag(e){
   const wasTap = !dragState.moved && !overTrash;
   trash.classList.remove('active');
 
-  if(hex.classList.contains('from-tray') && !hex.classList.contains('extracted')){
-    if (trayPending && trayPending.sourceEl && trayPending.sourceEl.isConnected) {
-      trayPending.sourceEl.style.visibility = '';
-    }
-    hex.remove();
-  }else if(overTrash){
+  if(overTrash){
     if (hex.dataset.markerLocked !== '1') {
       addBackToTray(hex.dataset.label, hex.dataset.kind);
     }
