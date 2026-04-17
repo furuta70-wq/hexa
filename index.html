@@ -105,12 +105,12 @@ html,body{
   margin:12px 10px 10px;
   position:relative;
   z-index:1;
-  display:block;
-  padding:8px 10px;
-  background:rgba(255,255,255,.68);
-  border:1px solid rgba(191,204,223,.95);
-  border-radius:12px;
-  box-shadow:0 4px 10px rgba(40,54,84,.06);
+  display:inline-block;
+  padding:4px 10px;
+  background:transparent;
+  border:1.5px solid rgba(120,137,164,.92);
+  border-radius:999px;
+  box-shadow:none;
 }
 .hex .marker{
   position:absolute;
@@ -201,6 +201,7 @@ html,body{
 }
 #workspace .hex.from-tray{
   opacity:.98;
+  transition:none;
 }
 #workspace .hex.extracted{
   box-shadow:0 20px 38px rgba(20,30,60,.24);
@@ -274,12 +275,15 @@ html,body{
   height:48px;
   border-radius:15px;
   padding:0 12px;
-  font-size:14px;font-weight:800;color:var(--text);
+  font-size:14px;font-weight:800;color:#2f3c4f;
+  background:rgba(248,250,253,.84);
+  border-color:rgba(207,218,233,.92);
+  box-shadow:0 6px 14px rgba(20,30,60,.06);
 }
 #editToggle.active{
   background:#eef4ff;
   border-color:#8fb0ef;
-  box-shadow:0 0 0 4px rgba(80,120,220,.10), var(--hud-shadow);
+  box-shadow:0 0 0 4px rgba(80,120,220,.08), 0 8px 18px rgba(20,30,60,.08);
 }
 #addCoreBtn{
   position:absolute;right:14px;top:70px;z-index:40;
@@ -313,7 +317,7 @@ html,body{
   background:rgba(255,255,255,.96);
   border:1px solid var(--line);
   border-radius:14px;
-  box-shadow:var(--hud-shadow);
+  box-shadow:0 8px 16px rgba(20,30,60,.08);
   padding:8px;
   backdrop-filter: blur(6px);
   max-width:min(92vw, 320px);
@@ -353,17 +357,17 @@ html,body{
 #citizenToggle{
   width:100%;
   border:0;
-  background:linear-gradient(180deg, #2f6fe4, #215dca);
+  background:linear-gradient(180deg, #3e78da, #2c64c9);
   border-radius:16px;
   padding:13px 12px;
   font-size:14px;
   font-weight:900;
   color:#ffffff;
-  box-shadow:0 10px 18px rgba(33,93,202,.22);
+  box-shadow:0 8px 14px rgba(33,93,202,.16);
 }
 #citizenToggle.active{
-  background:linear-gradient(180deg, #25a45f, #1d8b50);
-  box-shadow:0 10px 18px rgba(29,139,80,.22);
+  background:linear-gradient(180deg, #2fa060, #24884f);
+  box-shadow:0 8px 14px rgba(29,139,80,.16);
 }
 #citizenToggle::before{
   content:"切替";
@@ -388,7 +392,7 @@ html,body{
   font-size:14px;font-weight:800;color:var(--text);
 }
 #trash{
-  position:absolute;left:206px;top:78px;z-index:40;
+  position:absolute;right:14px;bottom:14px;z-index:40;
   width:112px;height:112px;border-radius:18px;
   border:2px dashed #d66767;background:rgba(255,255,255,.95);
   display:flex;align-items:center;justify-content:center;flex-direction:column;
@@ -408,7 +412,7 @@ html,body{
   :root{ --hex-w:136px; --hex-h:118px; --tray-w:176px; }
   .hex{font-size:18px}
   #clearBtn{left:184px;top:8px; width:100px}
-  #trash{left:184px;top:64px;width:100px;height:104px}
+  #trash{right:8px;bottom:8px;width:100px;height:104px}
 }
 </style>
 </head>
@@ -580,7 +584,9 @@ function applyCoreEditor(){
   }
   closeCoreEditor();
 }
-const DRAG_THRESHOLD = 10;
+const TRAY_DRAG_THRESHOLD = 12;
+const BOARD_DRAG_THRESHOLD = 7;
+const EXTRACT_MARGIN = 10;
 let zCounter = 10;
 let trayPending = null;
 let dragState = null;
@@ -723,6 +729,10 @@ function constrain(x, y){
   };
 }
 
+function constrainLoose(x, y){
+  return { x, y };
+}
+
 function snapAnchorX(){ return trayWidth() + 84 + getHexW()/2; }
 function snapAnchorY(){ return 72 + getHexH()/2; }
 
@@ -793,23 +803,11 @@ function startTrayPointerDown(e){
     sourceEl:e.currentTarget,
     offsetX:e.clientX - rect.left,
     offsetY:e.clientY - rect.top,
-    ghostEl:null,
     extracted:false
   };
   window.addEventListener('pointermove', onTrayPointerMove, {passive:false});
   window.addEventListener('pointerup', endTrayPointer);
   window.addEventListener('pointercancel', endTrayPointer);
-}
-
-function makeGhostFromTray(pending){
-  const src = pending.sourceEl;
-  const rect = src.getBoundingClientRect();
-  const vp = viewport.getBoundingClientRect();
-  const x = rect.left - vp.left - panX;
-  const y = rect.top - vp.top - panY;
-  const hex = createBoardHex(pending.label, pending.kind, x, y);
-  hex.classList.add('from-tray');
-  return hex;
 }
 
 function onTrayPointerMove(e){
@@ -818,20 +816,26 @@ function onTrayPointerMove(e){
   const dy = e.clientY - trayPending.startY;
 
   if(Math.abs(dy) > Math.abs(dx) && Math.abs(dy) > 6){
-    endTrayPointer();
+    endTrayPointer(e);
     return;
   }
-  if(Math.hypot(dx,dy) < DRAG_THRESHOLD) return;
+  if(Math.hypot(dx,dy) < TRAY_DRAG_THRESHOLD) return;
 
   e.preventDefault();
 
-  if(!trayPending.ghostEl){
-    trayPending.ghostEl = makeGhostFromTray(trayPending);
-    beginDrag(e, trayPending.ghostEl, trayPending.offsetX, trayPending.offsetY);
+  if(!dragState){
+    const p = pointerToWorkspace(e.clientX, e.clientY);
+    const HEX_W = getHexW(), HEX_H = getHexH();
+    const offsetX = trayPending.offsetX ?? (HEX_W / 2);
+    const offsetY = trayPending.offsetY ?? (HEX_H / 2);
+    const pos = constrainLoose(p.x - offsetX, p.y - offsetY);
+    const hex = createBoardHex(trayPending.label, trayPending.kind, pos.x, pos.y);
+    hex.classList.add('from-tray');
+    beginDrag(e, hex, offsetX, offsetY);
   } else {
     dragState.clientX = e.clientX;
     dragState.clientY = e.clientY;
-    if (Math.hypot(e.clientX - dragState.startClientX, e.clientY - dragState.startClientY) > 8) {
+    if (Math.hypot(e.clientX - dragState.startClientX, e.clientY - dragState.startClientY) > BOARD_DRAG_THRESHOLD) {
       dragState.moved = true;
     }
     if(!dragState.pending){
@@ -841,12 +845,17 @@ function onTrayPointerMove(e){
   }
 
   const trayRight = tray.getBoundingClientRect().right;
-  if(!trayPending.extracted && e.clientX > trayRight + 6){
+  const distanceOut = e.clientX - trayRight;
+  if (dragState && dragState.hex && !trayPending.extracted) {
+    dragState.hex.style.transform = `scale(${1 + Math.max(0, Math.min(0.04, distanceOut * 0.0015))})`;
+    dragState.hex.style.filter = `saturate(${1 + Math.max(0, Math.min(0.04, distanceOut * 0.002))})`;
+  }
+  if(!trayPending.extracted && distanceOut > EXTRACT_MARGIN){
     trayPending.extracted = true;
     if (trayPending.sourceEl && trayPending.sourceEl.isConnected) {
       trayPending.sourceEl.style.visibility = 'hidden';
     }
-    if (trayPending.ghostEl) trayPending.ghostEl.classList.add('extracted');
+    if (dragState && dragState.hex) dragState.hex.classList.add('extracted');
   }
 }
 
@@ -857,32 +866,33 @@ function endTrayPointer(e){
 
   if(trayPending){
     if(!trayPending.extracted){
-      if(trayPending.ghostEl && trayPending.ghostEl.isConnected){
-        trayPending.ghostEl.remove();
+      if(dragState && dragState.hex){
+        const ghost = dragState.hex;
+        ghost.remove();
+        if (ghost.releasePointerCapture && e) {
+          try { ghost.releasePointerCapture(e.pointerId); } catch(_) {}
+        }
+        ghost.removeEventListener('pointermove', onDragMove);
+        ghost.removeEventListener('pointerup', endDrag);
+        ghost.removeEventListener('pointercancel', endDrag);
+        dragState = null;
       }
       if(trayPending.sourceEl && trayPending.sourceEl.isConnected){
         trayPending.sourceEl.style.visibility = '';
-      }
-      if(dragState && trayPending.ghostEl && dragState.hex === trayPending.ghostEl){
-        dragState.hex.classList.remove('dragging','snap-candidate','from-tray','extracted');
-        if (dragState.hex.releasePointerCapture && e) {
-          try { dragState.hex.releasePointerCapture(e.pointerId); } catch(_) {}
-        }
-        dragState.hex.removeEventListener('pointermove', onDragMove);
-        dragState.hex.removeEventListener('pointerup', endDrag);
-        dragState.hex.removeEventListener('pointercancel', endDrag);
-        dragState = null;
       }
     } else {
       if(trayPending.sourceEl && trayPending.sourceEl.isConnected){
         trayPending.sourceEl.remove();
       }
-      if(trayPending.ghostEl) trayPending.ghostEl.classList.remove('from-tray','extracted');
+      if(dragState && dragState.hex){
+        dragState.hex.classList.remove('from-tray','extracted');
+        dragState.hex.style.transform = '';
+        dragState.hex.style.filter = '';
+      }
     }
   }
   trayPending = null;
 }
-
 function startDragExisting(e){
   e.preventDefault();
   e.stopPropagation();
@@ -919,7 +929,8 @@ function applyDragFrame(){
   trash.classList.toggle('active', overTrash);
 
   const p = pointerToWorkspace(dragState.clientX, dragState.clientY);
-  const raw = constrain(p.x - dragState.offsetX, p.y - dragState.offsetY);
+  const useLoose = dragState.hex.classList.contains('from-tray') && !dragState.hex.classList.contains('extracted');
+  const raw = (useLoose ? constrainLoose : constrain)(p.x - dragState.offsetX, p.y - dragState.offsetY);
 
   const snap = candidateSnapPositions(raw.x, raw.y);
   let x = raw.x, y = raw.y;
@@ -940,7 +951,7 @@ function onDragMove(e){
   if(!dragState || e.pointerId !== dragState.pointerId) return;
   dragState.clientX = e.clientX;
   dragState.clientY = e.clientY;
-  if (Math.hypot(e.clientX - dragState.startClientX, e.clientY - dragState.startClientY) > 8) {
+  if (Math.hypot(e.clientX - dragState.startClientX, e.clientY - dragState.startClientY) > BOARD_DRAG_THRESHOLD) {
     dragState.moved = true;
   }
   if(dragState.pending) return;
@@ -959,7 +970,12 @@ function endDrag(e){
   const wasTap = !dragState.moved && !overTrash;
   trash.classList.remove('active');
 
-  if(overTrash){
+  if(hex.classList.contains('from-tray') && !hex.classList.contains('extracted')){
+    if (trayPending && trayPending.sourceEl && trayPending.sourceEl.isConnected) {
+      trayPending.sourceEl.style.visibility = '';
+    }
+    hex.remove();
+  }else if(overTrash){
     if (hex.dataset.markerLocked !== '1') {
       addBackToTray(hex.dataset.label, hex.dataset.kind);
     }
