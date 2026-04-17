@@ -39,6 +39,10 @@
   --debate-fill-2:#6dd3a0;
   --debate-line:#169b68;
 
+  --citizen-fill-1:#ffd9e7;
+  --citizen-fill-2:#ffb8cf;
+  --citizen-line:#d35b87;
+
   --shadow:0 8px 20px rgba(20,30,60,.12);
   --shadow-strong:0 18px 34px rgba(20,30,60,.20);
   --hud-shadow:0 10px 24px rgba(20,30,60,.10);
@@ -86,7 +90,7 @@ html,body{
   border-right:1px solid var(--tray-line);
   box-shadow:0 0 0 1px rgba(255,255,255,.45) inset, 8px 0 28px rgba(40,54,84,.08);
   overflow-y:auto;overflow-x:hidden;
-  padding:18px 0 calc(var(--hex-h) + 26px);
+  padding:18px 0 0;
   z-index:50;
   scrollbar-width:thin;
 }
@@ -94,8 +98,19 @@ html,body{
 #tray::-webkit-scrollbar-thumb{background:rgba(100,115,145,.42);border-radius:8px}
 .group-block{padding:0 0 6px}
 .group-label{
-  font-size:11px;font-weight:900;letter-spacing:.08em;
-  color:var(--muted);margin:10px 0 8px 16px; position:relative; z-index:1;
+  font-size:16.5px;
+  font-weight:900;
+  letter-spacing:.04em;
+  color:#334154;
+  margin:12px 10px 10px;
+  position:relative;
+  z-index:1;
+  display:block;
+  padding:8px 10px;
+  background:rgba(255,255,255,.68);
+  border:1px solid rgba(191,204,223,.95);
+  border-radius:12px;
+  box-shadow:0 4px 10px rgba(40,54,84,.06);
 }
 .hex .marker{
   position:absolute;
@@ -250,6 +265,7 @@ html,body{
 .hex.structure{background:linear-gradient(180deg,var(--structure-fill-1),var(--structure-fill-2));border-color:var(--structure-line)}
 .hex.social{background:linear-gradient(180deg,var(--social-fill-1),var(--social-fill-2));border-color:var(--social-line)}
 .hex.debate{background:linear-gradient(180deg,var(--debate-fill-1),var(--debate-fill-2));border-color:var(--debate-line)}
+.hex.citizen{background:linear-gradient(180deg,var(--citizen-fill-1),var(--citizen-fill-2));border-color:var(--citizen-line)}
 
 
 #editToggle{
@@ -328,6 +344,31 @@ html,body{
   color:var(--text);
 }
 
+
+#citizenToggleWrap{
+  position:sticky;
+  bottom:0;
+  padding:10px 10px calc(var(--hex-h) + 18px);
+  background:linear-gradient(180deg, rgba(221,231,245,0) 0%, rgba(221,231,245,.9) 20%, rgba(221,231,245,.98) 100%);
+  z-index:3;
+}
+#citizenToggle{
+  width:100%;
+  border:1px solid rgba(191,204,223,.95);
+  background:rgba(255,255,255,.82);
+  border-radius:14px;
+  padding:12px 10px;
+  font-size:14px;
+  font-weight:900;
+  color:#334154;
+  box-shadow:0 4px 10px rgba(40,54,84,.06);
+}
+#citizenToggle.active{
+  background:#eef8f1;
+  border-color:#8cc5a0;
+  box-shadow:0 0 0 4px rgba(49,153,89,.10), 0 4px 10px rgba(40,54,84,.06);
+}
+
 .floating{
   position:absolute;z-index:40;
   background:rgba(255,255,255,.94);
@@ -379,12 +420,17 @@ html,body{
 
 <script>
 const coreItems = ['一般的な意見','筆者の主張','根拠','具体例','結論'];
-const groups = [
+const baseGroups = [
   { label: '歴史学者', className: 'time', items: ['過去','背景','変化','未来'] },
   { label: 'アナリスト', className: 'structure', items: ['前提','原因','影響','経済'] },
   { label: '政治家', className: 'social', items: ['文化','比較','リスク','政治'] },
   { label: '記者', className: 'debate', items: ['根拠','具体例','反論','対案'] }
 ];
+const citizenGroup = { label: '市民', className: 'citizen', items: ['疑問','反論','具体例','定義'] };
+let citizenEnabled = false;
+function currentGroups(){
+  return citizenEnabled ? [...baseGroups, citizenGroup] : baseGroups;
+}
 
 const viewport = document.getElementById('viewport');
 const workspace = document.getElementById('workspace');
@@ -397,6 +443,7 @@ const coreEditorInput = document.getElementById('coreEditorInput');
 const coreEditorOk = document.getElementById('coreEditorOk');
 const coreEditorCancel = document.getElementById('coreEditorCancel');
 const trash = document.getElementById('trash');
+let citizenToggle = null;
 
 function cssNum(name){ return parseFloat(getComputedStyle(document.documentElement).getPropertyValue(name)); }
 function getHexW(){ return cssNum('--hex-w'); }
@@ -557,7 +604,7 @@ function makeHex(label, className){
 
 function fillTray(){
   tray.innerHTML = '';
-  groups.forEach(group => {
+  currentGroups().forEach(group => {
     const block = document.createElement('div');
     block.className = 'group-block';
     const title = document.createElement('div');
@@ -572,6 +619,19 @@ function fillTray(){
     });
     tray.appendChild(block);
   });
+
+  const wrap = document.createElement('div');
+  wrap.id = 'citizenToggleWrap';
+  citizenToggle = document.createElement('button');
+  citizenToggle.id = 'citizenToggle';
+  citizenToggle.textContent = citizenEnabled ? '5人目：市民 ON' : '5人目：市民 OFF';
+  citizenToggle.classList.toggle('active', citizenEnabled);
+  citizenToggle.addEventListener('click', () => {
+    citizenEnabled = !citizenEnabled;
+    fillTray();
+  });
+  wrap.appendChild(citizenToggle);
+  tray.appendChild(wrap);
 }
 
 function addBackToTray(label, className){
@@ -582,7 +642,8 @@ function addBackToTray(label, className){
       className === 'time' ? '歴史学者' :
       className === 'structure' ? 'アナリスト' :
       className === 'social' ? '政治家' :
-      className === 'debate' ? '記者' : '骨組み'
+      className === 'debate' ? '記者' :
+      className === 'citizen' ? '市民' : '骨組み'
     );
   });
   if (!block) return;
@@ -591,9 +652,9 @@ function addBackToTray(label, className){
   hex.addEventListener('pointerdown', startTrayPointerDown);
 
   const existing = Array.from(block.querySelectorAll('.hex'));
-  const order = (groups.find(g => g.className === className)?.items || []).indexOf(label);
+  const order = (currentGroups().find(g => g.className === className)?.items || []).indexOf(label);
   const before = existing.find(h => {
-    const idx = (groups.find(g => g.className === className)?.items || []).indexOf(h.dataset.label);
+    const idx = (currentGroups().find(g => g.className === className)?.items || []).indexOf(h.dataset.label);
     return idx > order;
   });
   if (before) block.insertBefore(hex, before);
