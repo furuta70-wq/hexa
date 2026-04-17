@@ -842,6 +842,7 @@ function createFloatingHexFromTray(pending){
   const localY = srcRect.top - vpRect.top - panY;
   const ghost = createBoardHex(pending.label, pending.kind, localX, localY);
   ghost.classList.add('from-tray');
+  ghost._sourceEl = pending.sourceEl;
   return ghost;
 }
 
@@ -935,9 +936,6 @@ function endTrayPointer(e){
         trayPending.sourceEl.classList.remove('ghosting');
       }
     } else {
-      if(trayPending.sourceEl){
-        trayPending.sourceEl.remove();
-      }
       if(dragState && dragState.hex){
         dragState.hex.classList.remove('from-tray','extracted');
         dragState.hex.style.transform = '';
