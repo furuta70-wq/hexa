@@ -784,6 +784,8 @@ function placeInitialCore(){
 }
 
 function startTrayPointerDown(e){
+  e.preventDefault();
+  e.stopPropagation();
   const rect = e.currentTarget.getBoundingClientRect();
   const hitX = e.clientX - rect.left;
   const rightHalf = hitX >= rect.width * 0.5;
@@ -998,7 +1000,14 @@ function endDrag(e){
 
   trash.classList.remove('active');
 
-  if(overTrash){
+  if(hex.classList.contains('from-tray') && !hex.classList.contains('extracted')){
+    if (sourceEl && sourceEl.isConnected) {
+      sourceEl.style.visibility = '';
+      sourceEl.classList.remove('ghosting');
+    }
+    hex.remove();
+
+  }else if(overTrash){
     // 左カラム由来なら元札を復帰、盤面既存札なら戻す札を追加
     if (sourceEl && sourceEl.isConnected) {
       usedTrayItems.delete(trayKey(hex.dataset.label, hex.dataset.kind));
