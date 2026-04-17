@@ -935,7 +935,7 @@ function endTrayPointer(e){
         trayPending.sourceEl.classList.remove('ghosting');
       }
     } else {
-      if(trayPending.sourceEl && trayPending.sourceEl.isConnected){
+      if(trayPending.sourceEl){
         trayPending.sourceEl.remove();
       }
       if(dragState && dragState.hex){
