@@ -204,6 +204,36 @@ html,body{
 #workspace .hex.drop-flash{
   animation:dropSettle 220ms ease-out;
 }
+#workspace .hex.spawn-flash{
+  animation:spawnPop 520ms cubic-bezier(.18,.9,.2,1);
+}
+@keyframes spawnPop{
+  0%{
+    transform:scale(.72);
+    opacity:.18;
+    box-shadow:
+      0 0 0 0 rgba(80,120,220,0),
+      0 0 0 0 rgba(255,255,255,0),
+      var(--shadow-strong);
+  }
+  28%{
+    transform:scale(1.16);
+    opacity:1;
+    box-shadow:
+      0 0 0 10px rgba(80,120,220,.18),
+      0 0 0 18px rgba(255,255,255,.65),
+      0 18px 40px rgba(80,120,220,.22),
+      var(--shadow-strong);
+  }
+  62%{
+    transform:scale(.97);
+  }
+  100%{
+    transform:scale(1);
+    opacity:1;
+    box-shadow:var(--shadow);
+  }
+}
 @keyframes snapPulse{
   0%{transform:scale(1.02)}
   22%{transform:scale(1.16)}
@@ -221,6 +251,82 @@ html,body{
 .hex.social{background:linear-gradient(180deg,var(--social-fill-1),var(--social-fill-2));border-color:var(--social-line)}
 .hex.debate{background:linear-gradient(180deg,var(--debate-fill-1),var(--debate-fill-2));border-color:var(--debate-line)}
 
+
+#editToggle{
+  position:absolute;right:14px;top:14px;z-index:40;
+  width:132px;
+  height:48px;
+  border-radius:15px;
+  padding:0 12px;
+  font-size:14px;font-weight:800;color:var(--text);
+}
+#editToggle.active{
+  background:#eef4ff;
+  border-color:#8fb0ef;
+  box-shadow:0 0 0 4px rgba(80,120,220,.10), var(--hud-shadow);
+}
+#addCoreBtn{
+  position:absolute;right:14px;top:70px;z-index:40;
+  width:132px;
+  border-radius:15px;
+  padding:11px 12px;
+  font-size:14px;font-weight:800;color:var(--text);
+  display:none;
+}
+#addCoreBtn.show{display:block}
+#workspace .hex.core .label{
+  max-width:88px;
+  display:-webkit-box;
+  -webkit-box-orient:vertical;
+  -webkit-line-clamp:2;
+  overflow:hidden;
+  line-clamp:2;
+  font-size:18px;
+  line-height:1.08;
+  word-break:keep-all;
+  overflow-wrap:anywhere;
+}
+
+
+#coreEditor{
+  position:absolute;
+  z-index:80;
+  display:none;
+  gap:8px;
+  align-items:center;
+  background:rgba(255,255,255,.96);
+  border:1px solid var(--line);
+  border-radius:14px;
+  box-shadow:var(--hud-shadow);
+  padding:8px;
+  backdrop-filter: blur(6px);
+}
+#coreEditor.show{display:flex}
+#coreEditor input{
+  width:144px;
+  border:1px solid #cfd8e6;
+  border-radius:10px;
+  padding:9px 10px;
+  font-size:14px;
+  font-weight:700;
+  color:var(--text);
+  outline:none;
+  background:#fff;
+}
+#coreEditor input:focus{
+  border-color:#86a8ea;
+  box-shadow:0 0 0 3px rgba(90,130,220,.14);
+}
+#coreEditor button{
+  border:1px solid var(--line);
+  background:#fff;
+  border-radius:10px;
+  padding:9px 10px;
+  font-size:13px;
+  font-weight:800;
+  color:var(--text);
+}
+
 .floating{
   position:absolute;z-index:40;
   background:rgba(255,255,255,.94);
@@ -229,13 +335,13 @@ html,body{
   backdrop-filter: blur(6px);
 }
 #clearBtn{
-  left:206px;top:14px;
+  left:206px;top:14px; width:112px;
   border-radius:15px;
   padding:11px 15px;
   font-size:14px;font-weight:800;color:var(--text);
 }
 #trash{
-  position:absolute;right:14px;top:14px;z-index:40;
+  position:absolute;left:206px;top:78px;z-index:40;
   width:112px;height:112px;border-radius:18px;
   border:2px dashed #d66767;background:rgba(255,255,255,.95);
   display:flex;align-items:center;justify-content:center;flex-direction:column;
@@ -254,8 +360,8 @@ html,body{
 @media (max-width:900px){
   :root{ --hex-w:136px; --hex-h:118px; --tray-w:176px; }
   .hex{font-size:18px}
-  #clearBtn{right:116px;top:8px}
-  #trash{right:8px;top:8px;width:100px;height:104px}
+  #clearBtn{left:184px;top:8px; width:100px}
+  #trash{left:184px;top:64px;width:100px;height:104px}
 }
 </style>
 </head>
@@ -264,22 +370,31 @@ html,body{
   <div id="viewport"><div id="workspace"></div></div>
   <div id="tray"></div>
   <button id="clearBtn" class="floating">全リセット</button>
+  <button id="editToggle" class="floating">基本構造リライト</button>
+  <button id="addCoreBtn" class="floating">基本ヘキサゴン追加</button>
+  <div id="coreEditor"><input id="coreEditorInput" maxlength="8" /><button id="coreEditorOk">OK</button><button id="coreEditorCancel">閉じる</button></div>
   <div id="trash"><span class="icon">🗑️</span><span>削除</span></div>
 </div>
 
 <script>
 const coreItems = ['一般的な意見','筆者の主張','根拠','具体例','結論'];
 const groups = [
-  { label: '時間', className: 'time', items: ['背景','過去','変化','未来'] },
-  { label: '構造', className: 'structure', items: ['原因','前提','対立','影響'] },
-  { label: '社会', className: 'social', items: ['政治','比較','文化','リスク'] },
-  { label: '議論', className: 'debate', items: ['具体例','根拠','反論','対案'] }
+  { label: '歴史学者', className: 'time', items: ['背景','過去','変化','未来'] },
+  { label: 'アナリスト', className: 'structure', items: ['原因','前提','対立','影響'] },
+  { label: '政治家', className: 'social', items: ['政治','比較','文化','リスク'] },
+  { label: '記者', className: 'debate', items: ['具体例','根拠','反論','対案'] }
 ];
 
 const viewport = document.getElementById('viewport');
 const workspace = document.getElementById('workspace');
 const tray = document.getElementById('tray');
 const clearBtn = document.getElementById('clearBtn');
+const editToggle = document.getElementById('editToggle');
+const addCoreBtn = document.getElementById('addCoreBtn');
+const coreEditor = document.getElementById('coreEditor');
+const coreEditorInput = document.getElementById('coreEditorInput');
+const coreEditorOk = document.getElementById('coreEditorOk');
+const coreEditorCancel = document.getElementById('coreEditorCancel');
 const trash = document.getElementById('trash');
 
 function cssNum(name){ return parseFloat(getComputedStyle(document.documentElement).getPropertyValue(name)); }
@@ -317,11 +432,87 @@ function updateMarker(el){
   marker.style.color = item.color;
 }
 
+
+function setHexLabel(el, text){
+  el.dataset.label = text;
+  const labelEl = el.querySelector('.label');
+  if (labelEl) labelEl.textContent = text;
+}
+
+function findOpenCoreSpot(){
+  const occupied = new Set(
+    Array.from(workspace.querySelectorAll('.hex.core')).map(el => {
+      const x = parseFloat(el.style.left) || 0;
+      const y = parseFloat(el.style.top) || 0;
+      const snap = candidateSnapPositions(x, y);
+      return snap ? `${snap.q},${snap.r}` : '';
+    })
+  );
+  const candidates = [
+    [5,1],[5,2],[4,3],[3,3],[2,3],[5,0],[6,1],[6,2],[4,4],[3,4]
+  ];
+  for (const [q,r] of candidates) {
+    if (!occupied.has(`${q},${r}`)) return gridToPosition(q, r);
+  }
+  return gridToPosition(5, 2);
+}
 function cycleMarker(el){
   if (el.dataset.markerLocked === '1') return;
   const idx = parseInt(el.dataset.markIndex || '0', 10) || 0;
   el.dataset.markIndex = String((idx + 1) % markerCycle.length);
   updateMarker(el);
+}
+
+let rewriteMode = false;
+let coreEditTarget = null;
+
+function updateRewriteUI(){
+  editToggle.classList.toggle('active', rewriteMode);
+  addCoreBtn.classList.toggle('show', rewriteMode);
+}
+
+function openCoreEditor(targetEl, initialText){
+  coreEditTarget = targetEl || null;
+  coreEditorInput.value = (initialText || '').slice(0, 8);
+  const rect = targetEl ? targetEl.getBoundingClientRect() : addCoreBtn.getBoundingClientRect();
+  const appRect = document.getElementById('app').getBoundingClientRect();
+  let left = rect.left - appRect.left;
+  let top = rect.bottom - appRect.top + 8;
+  const maxLeft = appRect.width - 190;
+  left = Math.max(trayWidth() + 12, Math.min(maxLeft, left));
+  const maxTop = appRect.height - 70;
+  top = Math.max(8, Math.min(maxTop, top));
+  coreEditor.style.left = `${left}px`;
+  coreEditor.style.top = `${top}px`;
+  coreEditor.classList.add('show');
+  coreEditorInput.focus();
+  coreEditorInput.select();
+}
+
+function closeCoreEditor(){
+  coreEditor.classList.remove('show');
+  coreEditTarget = null;
+}
+
+function applyCoreEditor(){
+  const text = coreEditorInput.value.replace(/\s+/g, ' ').trim().slice(0, 8);
+  if (!text) {
+    closeCoreEditor();
+    return;
+  }
+  if (coreEditTarget) {
+    setHexLabel(coreEditTarget, text);
+    triggerSpawnEffect(coreEditTarget);
+    const rect = coreEditTarget.getBoundingClientRect();
+    const vp = viewport.getBoundingClientRect();
+    pulseViewportAt(rect.left - vp.left + rect.width/2, rect.top - vp.top + rect.height/2);
+  } else {
+    const pos = findOpenCoreSpot();
+    const el = createBoardHex(text, 'core', pos.x, pos.y);
+    triggerSpawnEffect(el);
+    pulseViewportAt(pos.x + getHexW()/2 + panX, pos.y + getHexH()/2 + panY);
+  }
+  closeCoreEditor();
 }
 const DRAG_THRESHOLD = 10;
 let zCounter = 10;
@@ -336,6 +527,7 @@ function makeHex(label, className){
   el.dataset.kind = className;
   el.dataset.markIndex = '0';
   el.dataset.markerLocked = className === 'core' ? '1' : '0';
+  el.dataset.coreEditable = className === 'core' ? '1' : '0';
 
   const marker = document.createElement('div');
   marker.className = 'marker';
@@ -373,10 +565,10 @@ function addBackToTray(label, className){
   const block = blocks.find(b => {
     const title = b.querySelector('.group-label');
     return title && title.textContent === (
-      className === 'time' ? '時間' :
-      className === 'structure' ? '構造' :
-      className === 'social' ? '社会' :
-      className === 'debate' ? '議論' : '骨組み'
+      className === 'time' ? '歴史学者' :
+      className === 'structure' ? 'アナリスト' :
+      className === 'social' ? '政治家' :
+      className === 'debate' ? '記者' : '骨組み'
     );
   });
   if (!block) return;
@@ -394,6 +586,37 @@ function addBackToTray(label, className){
   else block.appendChild(hex);
 }
 
+
+
+function triggerSpawnEffect(el){
+  el.classList.remove('spawn-flash');
+  void el.offsetWidth;
+  el.classList.add('spawn-flash');
+  setTimeout(()=>el.classList.remove('spawn-flash'), 560);
+  if(navigator.vibrate) navigator.vibrate([12, 18, 12]);
+}
+
+function pulseViewportAt(x, y){
+  const ring = document.createElement('div');
+  ring.style.position = 'absolute';
+  ring.style.left = `${x - 18}px`;
+  ring.style.top = `${y - 18}px`;
+  ring.style.width = '36px';
+  ring.style.height = '36px';
+  ring.style.borderRadius = '999px';
+  ring.style.pointerEvents = 'none';
+  ring.style.border = '3px solid rgba(80,120,220,.28)';
+  ring.style.boxShadow = '0 0 0 6px rgba(255,255,255,.7)';
+  ring.style.opacity = '1';
+  ring.style.transform = 'scale(.6)';
+  ring.style.transition = 'transform 420ms cubic-bezier(.18,.9,.2,1), opacity 420ms ease-out';
+  viewport.appendChild(ring);
+  requestAnimationFrame(() => {
+    ring.style.transform = 'scale(2.8)';
+    ring.style.opacity = '0';
+  });
+  setTimeout(() => ring.remove(), 460);
+}
 
 function createBoardHex(label, className, x, y){
   const el = makeHex(label, className);
@@ -662,7 +885,11 @@ function endDrag(e){
     }
     hex.remove();
   }else if(wasTap){
-    cycleMarker(hex);
+    if (rewriteMode && hex.dataset.coreEditable === '1') {
+      openCoreEditor(hex, hex.dataset.label || '');
+    } else {
+      cycleMarker(hex);
+    }
     triggerDropEffect(hex);
   }else{
     const x = parseFloat(hex.style.left) || 0;
@@ -715,11 +942,29 @@ viewport.addEventListener('pointermove', onPanMove);
 viewport.addEventListener('pointerup', endPan);
 viewport.addEventListener('pointercancel', endPan);
 
+
+editToggle.addEventListener('click', () => {
+  rewriteMode = !rewriteMode;
+  updateRewriteUI();
+});
+
+addCoreBtn.addEventListener('click', () => {
+  if (!rewriteMode) return;
+  openCoreEditor(null, '新規');
+});
+
+coreEditorOk.addEventListener('click', applyCoreEditor);
+coreEditorCancel.addEventListener('click', closeCoreEditor);
+coreEditorInput.addEventListener('keydown', (e) => {
+  if (e.key === 'Enter') applyCoreEditor();
+  if (e.key === 'Escape') closeCoreEditor();
+});
 clearBtn.addEventListener('click', ()=>{
   workspace.innerHTML = '';
   panX = 0;
   panY = 0;
   applyPan();
+  closeCoreEditor();
   fillTray();
   placeInitialCore();
 });
@@ -736,6 +981,7 @@ document.addEventListener('contextmenu', e => {
 fillTray();
 applyPan();
 placeInitialCore();
+updateRewriteUI();
 </script>
 </body>
 </html>
