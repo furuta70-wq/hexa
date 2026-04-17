@@ -300,6 +300,7 @@ html,body{
   box-shadow:var(--hud-shadow);
   padding:8px;
   backdrop-filter: blur(6px);
+  max-width:min(92vw, 320px);
 }
 #coreEditor.show{display:flex}
 #coreEditor input{
@@ -474,17 +475,30 @@ function updateRewriteUI(){
 function openCoreEditor(targetEl, initialText){
   coreEditTarget = targetEl || null;
   coreEditorInput.value = (initialText || '').slice(0, 8);
-  const rect = targetEl ? targetEl.getBoundingClientRect() : addCoreBtn.getBoundingClientRect();
+
+  const anchorRect = targetEl ? targetEl.getBoundingClientRect() : addCoreBtn.getBoundingClientRect();
   const appRect = document.getElementById('app').getBoundingClientRect();
-  let left = rect.left - appRect.left;
-  let top = rect.bottom - appRect.top + 8;
-  const maxLeft = appRect.width - 190;
-  left = Math.max(trayWidth() + 12, Math.min(maxLeft, left));
-  const maxTop = appRect.height - 70;
+
+  coreEditor.classList.add('show');
+  coreEditor.style.left = '0px';
+  coreEditor.style.top = '0px';
+
+  const editorWidth = Math.min(coreEditor.offsetWidth || 260, appRect.width - 16);
+  const editorHeight = coreEditor.offsetHeight || 56;
+
+  let left = anchorRect.left - appRect.left;
+  let top = anchorRect.bottom - appRect.top + 8;
+
+  const minLeft = trayWidth() + 12;
+  const maxLeft = appRect.width - editorWidth - 8;
+  left = Math.max(minLeft, Math.min(maxLeft, left));
+
+  const maxTop = appRect.height - editorHeight - 8;
   top = Math.max(8, Math.min(maxTop, top));
+
   coreEditor.style.left = `${left}px`;
   coreEditor.style.top = `${top}px`;
-  coreEditor.classList.add('show');
+
   coreEditorInput.focus();
   coreEditorInput.select();
 }
